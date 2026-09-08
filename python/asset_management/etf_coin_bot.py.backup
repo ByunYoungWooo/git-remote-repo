@@ -1,0 +1,540 @@
+import os
+import re
+import requests
+from bs4 import BeautifulSoup
+
+
+# =========================================================
+# 환경변수
+# =========================================================
+if os.path.exists(".env"):
+    from dotenv import load_dotenv
+    load_dotenv()
+
+BOT_TOKEN = os.getenv("TELEGRAM_BOT_TOKEN", "")
+CHAT_ID = os.getenv("TELEGRAM_CHAT_ID", "")
+
+
+# =========================================================
+# HTTP 헤더
+# =========================================================
+HEADERS = {
+    "User-Agent": (
+        "Mozilla/5.0 (X11; Linux x86_64) "
+        "AppleWebKit/537.36 (KHTML, like Gecko) "
+        "Chrome/151.0.0.0 Safari/537.36"
+    )
+}
+
+
+# =========================================================
+# 네이버 페이지 가져오기
+# =========================================================
+def get_soup(url: str):
+    try:
+        r = requests.get(
+            url,
+            headers=HEADERS,
+            timeout=10
+        )
+
+        r.raise_for_status()
+        r.encoding = r.apparent_encoding
+
+        return BeautifulSoup(
+            r.text,
+            "html.parser"
+        )
+
+    except Exception as e:
+        print(f"네이버 요청 오류({url}): {e}")
+        return None
+
+
+# =========================================================
+# 원/달러 환율
+# =========================================================
+def get_exchange_rate():
+
+    soup = get_soup(
+        "https://finance.naver.com/marketindex/"
+    )
+
+    if not soup:
+        return "조회 실패", ""
+
+    try:
+        usd_el = soup.select_one("a.head.usd")
+
+        if not usd_el:
+            raise ValueError(
+                "USD 정보를 찾을 수 없습니다."
+            )
+
+        rate_el = usd_el.select_one(".value")
+        change_el = usd_el.select_one(".change")
+
+        if not rate_el:
+            raise ValueError(
+                "환율 값을 찾을 수 없습니다."
+            )
+
+        # 현재 환율
+        cur_float = float(
+            rate_el.get_text(strip=True)
+            .replace(",", "")
+        )
+
+        # 변동값
+        change_text = (
+            change_el.get_text(strip=True)
+            if change_el
+            else "0"
+        )
+
+        match = re.search(
+            r"([+-]?\d+(?:\.\d+)?)",
+            change_text
+        )
+
+        change = (
+            float(match.group(1))
+            if match
+            else 0
+        )
+
+        # 변동률
+        pct = (
+            change / cur_float * 100
+            if cur_float != 0
+            else 0
+        )
+
+        sign_change = "+" if change >= 0 else "-"
+        sign_pct = "+" if pct >= 0 else "-"
+
+        return (
+            f"{cur_float:,.2f}",
+            f"{sign_change}{abs(change):.0f}, "
+            f"{sign_pct}{abs(pct):.1f}%"
+        )
+
+    except Exception as e:
+        print(f"환율 파싱 오류: {e}")
+        return "조회 실패", ""
+
+
+# =========================================================
+# 코스피 / 코스닥
+# =========================================================
+def get_index(code: str):
+
+    url = (
+        "https://finance.naver.com/sise/"
+        f"sise_index.naver?code={code}"
+    )
+
+    soup = get_soup(url)
+
+    if not soup:
+        return "조회 실패", ""
+
+    try:
+        # 현재 지수
+        cur_el = soup.select_one("#now_value")
+
+        if not cur_el:
+            raise ValueError(
+                "현재 지수 값을 찾을 수 없습니다."
+            )
+
+        cur_float = float(
+            cur_el.get_text(strip=True)
+            .replace(",", "")
+        )
+
+        # 전일 대비 영역
+        change_el = soup.select_one(
+            "#change_value_and_rate"
+        )
+
+        if not change_el:
+            return (
+                f"{cur_float:,.2f}",
+                "+0, +0.0%"
+            )
+
+        text = change_el.get_text(
+            " ",
+            strip=True
+        )
+
+        # 예:
+        # +4.00 +0.06%
+        # -4.00 -0.06%
+        numbers = re.findall(
+            r"[+-]?\d+(?:\.\d+)?",
+            text
+        )
+
+        if len(numbers) >= 2:
+            change = float(numbers[0])
+            pct = float(numbers[1])
+
+        elif len(numbers) == 1:
+            change = float(numbers[0])
+            pct = 0
+
+        else:
+            change = 0
+            pct = 0
+
+        sign_change = "+" if change >= 0 else "-"
+        sign_pct = "+" if pct >= 0 else "-"
+
+        return (
+            f"{cur_float:,.2f}",
+            f"{sign_change}{abs(change):.0f}, "
+            f"{sign_pct}{abs(pct):.1f}%"
+        )
+
+    except Exception as e:
+        print(f"지수 파싱 오류({code}): {e}")
+        return "조회 실패", ""
+
+
+# =========================================================
+# ETF / 주식
+# =========================================================
+def get_stock_price(code: str):
+
+    url = (
+        "https://finance.naver.com/item/"
+        f"main.naver?code={code}"
+    )
+
+    soup = get_soup(url)
+
+    if not soup:
+        return "조회 실패", ""
+
+    try:
+        # 현재 가격
+        price_el = soup.select_one(
+            ".no_today .blind"
+        )
+
+        if not price_el:
+            raise ValueError(
+                "현재 가격을 찾을 수 없습니다."
+            )
+
+        cur_float = float(
+            price_el.get_text(strip=True)
+            .replace(",", "")
+        )
+
+        # 전일 대비
+        change_el = soup.select_one(
+            ".no_exday .blind"
+        )
+
+        if not change_el:
+            return (
+                f"{cur_float:,.2f}",
+                "+0, +0.0%"
+            )
+
+        change_text = change_el.get_text(
+            strip=True
+        )
+
+        match = re.search(
+            r"([+-]?\d+(?:\.\d+)?)",
+            change_text
+        )
+
+        change = (
+            float(match.group(1))
+            if match
+            else 0
+        )
+
+        # 변동률
+        pct = (
+            change / cur_float * 100
+            if cur_float != 0
+            else 0
+        )
+
+        sign_change = "+" if change >= 0 else "-"
+        sign_pct = "+" if pct >= 0 else "-"
+
+        return (
+            f"{cur_float:,.2f}",
+            f"{sign_change}{abs(change):.0f}, "
+            f"{sign_pct}{abs(pct):.1f}%"
+        )
+
+    except Exception as e:
+        print(f"주식 파싱 오류({code}): {e}")
+        return "조회 실패", ""
+
+
+# =========================================================
+# 코인 - Upbit
+# =========================================================
+def get_crypto(market: str):
+
+    try:
+        url = (
+            "https://api.upbit.com/v1/ticker"
+            f"?markets={market}"
+        )
+
+        r = requests.get(
+            url,
+            headers=HEADERS,
+            timeout=10
+        )
+
+        r.raise_for_status()
+
+        data = r.json()[0]
+
+        # -------------------------------------------------
+        # 중요:
+        # Upbit trade_price는 이미 KRW 실제 가격입니다.
+        # 따라서 /100 하지 않습니다.
+        # -------------------------------------------------
+        price = float(
+            data["trade_price"]
+        )
+
+        # 전일 대비 실제 가격 변동
+        change = float(
+            data["signed_change_price"]
+        )
+
+        # 전일 대비 등락률
+        pct = float(
+            data["signed_change_rate"]
+        ) * 100
+
+        sign_change = "+" if change >= 0 else "-"
+        sign_pct = "+" if pct >= 0 else "-"
+
+        return (
+            f"{price:,.0f}",
+            f"{sign_change}{abs(change):,.0f}, "
+            f"{sign_pct}{abs(pct):.2f}%"
+        )
+
+    except Exception as e:
+        print(f"코인 조회 오류({market}): {e}")
+        return "조회 실패", ""
+
+
+# =========================================================
+# ETF 목록
+# =========================================================
+ETF_MAP = {
+    "KODEX 200TR": "278530",
+    "KODEX 코스닥150": "229200",
+    "PLUS K방산": "449450",
+    "ACE 금현물": "411060",
+    "TIGER S&P500": "360750",
+    "SOFR 금리": "438570",
+    "국고채10년": "385550"
+}
+
+
+# =========================================================
+# 한글 / 영문 표시 폭 계산
+# =========================================================
+def display_width(text):
+
+    width = 0
+
+    for ch in text:
+        # 한글/한자/특수문자 등은 2칸
+        if ord(ch) > 127:
+            width += 2
+        else:
+            width += 1
+
+    return width
+
+
+# =========================================================
+# 상품명 오른쪽 정렬
+# =========================================================
+def pad_right(text, width):
+
+    current = display_width(text)
+
+    return (
+        text
+        + " " * max(
+            0,
+            width - current
+        )
+    )
+
+
+# =========================================================
+# 한 줄 생성
+# =========================================================
+def make_line(
+    name,
+    price,
+    change,
+    name_width=16
+):
+
+    name = pad_right(
+        name,
+        name_width
+    )
+
+    return (
+        f"{name}: "
+        f"{price:>12s}  "
+        f"({change})"
+    )
+
+
+# =========================================================
+# 메시지 생성
+# =========================================================
+msg = ""
+
+
+# ---------------------------------------------------------
+# 원/달러
+# ---------------------------------------------------------
+rate, rate_chg = get_exchange_rate()
+
+msg += (
+    make_line(
+        "원달러 환율",
+        rate,
+        rate_chg
+    )
+    + "\n"
+)
+
+
+# ---------------------------------------------------------
+# 코스피
+# ---------------------------------------------------------
+kospi_price, kospi_chg = get_index("200")
+
+msg += (
+    make_line(
+        "코스피",
+        kospi_price,
+        kospi_chg
+    )
+    + "\n"
+)
+
+
+# ---------------------------------------------------------
+# 코스닥
+# ---------------------------------------------------------
+kosdaq_price, kosdaq_chg = get_index("202")
+
+msg += (
+    make_line(
+        "코스닥",
+        kosdaq_price,
+        kosdaq_chg
+    )
+    + "\n"
+)
+
+
+# ---------------------------------------------------------
+# ETF
+# ---------------------------------------------------------
+for name, code in ETF_MAP.items():
+
+    price, change = get_stock_price(code)
+
+    msg += (
+        make_line(
+            name,
+            price,
+            change
+        )
+        + "\n"
+    )
+
+
+# ---------------------------------------------------------
+# 비트코인
+# ---------------------------------------------------------
+btc_price, btc_change = get_crypto(
+    "KRW-BTC"
+)
+
+msg += (
+    make_line(
+        "비트코인",
+        btc_price,
+        btc_change
+    )
+    + "\n"
+)
+
+
+# ---------------------------------------------------------
+# 이더리움
+# ---------------------------------------------------------
+eth_price, eth_change = get_crypto(
+    "KRW-ETH"
+)
+
+msg += (
+    make_line(
+        "이더리움",
+        eth_price,
+        eth_change
+    )
+    + "\n"
+)
+
+
+# =========================================================
+# 콘솔 출력
+# =========================================================
+print(msg)
+
+
+# =========================================================
+# Telegram 전송
+# =========================================================
+try:
+
+    telegram_url = (
+        f"https://api.telegram.org/"
+        f"bot{BOT_TOKEN}/sendMessage"
+    )
+
+    r = requests.post(
+        telegram_url,
+        data={
+            "chat_id": CHAT_ID,
+            "text": msg
+        },
+        timeout=10
+    )
+
+    r.raise_for_status()
+
+except Exception as e:
+
+    print(
+        f"텔레그램 전송 실패: {e}"
+    )

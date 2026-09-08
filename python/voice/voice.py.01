@@ -1,0 +1,111 @@
+# voice.py
+import asyncio
+import queue
+import sounddevice as sd
+import numpy as np
+import torch
+import whisper
+import json
+import requests
+from telethon import TelegramClient
+from dotenv import load_dotenv
+import os
+
+# -------------------------
+# 환경 변수 불러오기
+# -------------------------
+load_dotenv("tel.env")
+API_ID = int(os.getenv("API_ID"))
+API_HASH = os.getenv("API_HASH")
+BOT_TOKEN = os.getenv("BOT_TOKEN")
+CHAT_ID = int(os.getenv("CHAT_ID"))
+
+# -------------------------
+# LM Studio 설정
+# -------------------------
+LM_URL = "http://127.0.0.1:1234/api/v1/chat"  # 실제 LM Studio chat endpoint
+
+# -------------------------
+# 마이크 감도 체크 (mic_chk 기능)
+# -------------------------
+FS = 16000  # 샘플링 레이트
+DURATION = 5  # 5초 무음 측정
+
+def measure_mic_threshold():
+    print("📢 마이크 감도 측정 중... 5초 동안 아무 소리 내지 마세요.")
+    recording = sd.rec(int(DURATION * FS), samplerate=FS, channels=1, dtype='float32')
+    sd.wait()
+    rms = np.sqrt(np.mean(recording**2))
+    threshold = rms * 3  # 간단히 RMS*3 기준
+    print(f"✅ 측정 완료!\n무음 RMS: {rms:.6f}\n추천 발화 감지 THRESHOLD: {threshold:.6f}")
+    return threshold
+
+THRESHOLD = measure_mic_threshold()
+
+# -------------------------
+# Whisper 모델 로드
+# -------------------------
+print("📥 Whisper tiny 모델 로딩 중... (device=cuda)")
+model = whisper.load_model("tiny", device="cuda")
+print("✅ 모델 로드 완료")
+
+# -------------------------
+# Telegram Client
+# -------------------------
+client = TelegramClient('bot_session', API_ID, API_HASH).start(bot_token=BOT_TOKEN)
+print("✅ Telegram 로그인 성공")
+
+# -------------------------
+# 오디오 큐
+# -------------------------
+audio_queue = asyncio.Queue()
+
+# -------------------------
+# 마이크 콜백
+# -------------------------
+def mic_callback(indata, frames, time, status):
+    rms = np.sqrt(np.mean(indata**2))
+    if rms > THRESHOLD:
+        loop = asyncio.get_running_loop()
+        loop.call_soon_threadsafe(audio_queue.put_nowait, indata.copy())
+
+# -------------------------
+# 오디오 처리 + Whisper
+# -------------------------
+async def process_audio_loop():
+    while True:
+        segment = await audio_queue.get()
+        segment = segment.flatten()
+        result = model.transcribe(segment, fp16=False, language="ko")
+        text = result["text"].strip()
+        if text:
+            print(f"📝 인식: {text}")
+            # LM Studio 호출
+            try:
+                payload = {"prompt": text}
+                resp = requests.post(LM_URL, json=payload)
+                resp.raise_for_status()
+                data = resp.json()
+                llm_response = data.get("response", "[LLM 응답 없음]")
+            except Exception as e:
+                llm_response = f"[LLM 요청 실패] {e}"
+            print(f"💬 LLM 응답: {llm_response}")
+            # Telegram 전송
+            try:
+                await client.send_message(CHAT_ID, llm_response)
+            except Exception as e:
+                print(f"Telegram 전송 실패: {e}")
+
+# -------------------------
+# 메인 루프
+# -------------------------
+async def main():
+    print("🎤 실시간 대화 시작. 말을 해보세요...")
+    with sd.InputStream(samplerate=FS, channels=1, dtype='float32', callback=mic_callback):
+        await process_audio_loop()
+
+# -------------------------
+# 실행
+# -------------------------
+asyncio.run(main())
+
