@@ -7,9 +7,25 @@ from bs4 import BeautifulSoup
 # =========================================================
 # 환경변수
 # =========================================================
-if os.path.exists(".env"):
+# 프로젝트 디렉터리의 .env
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+DOTENV_FILE = os.path.join(BASE_DIR, ".env")
+
+if os.path.exists(DOTENV_FILE):
     from dotenv import load_dotenv
-    load_dotenv()
+    load_dotenv(DOTENV_FILE)
+
+# 공통 환경파일
+ENV_FILE = "/home/wooba/.config/etf_coin_bot.env"
+
+if os.path.exists(ENV_FILE):
+    with open(ENV_FILE, "r") as f:
+        for line in f:
+            line = line.strip()
+            if not line or line.startswith("#") or "=" not in line:
+                continue
+            key, value = line.split("=", 1)
+            os.environ[key.strip()] = value.strip()
 
 BOT_TOKEN = os.getenv("TELEGRAM_BOT_TOKEN", "")
 CHAT_ID = os.getenv("TELEGRAM_CHAT_ID", "")
@@ -251,6 +267,8 @@ print(msg)
 
 try:
     telegram_url = f"https://api.telegram.org/bot{BOT_TOKEN}/sendMessage"
+    if not CHAT_ID:
+        CHAT_ID = "8526301346"  # 현재 채널 ID 사용
     r = requests.post(
         telegram_url,
         data={
@@ -259,7 +277,11 @@ try:
         },
         timeout=10
     )
-    r.raise_for_status()
-    print("텔레그램 전송 완료!")
+    if r.status_code == 200:
+        print("✅ 텔레그램 전송 완료!")
+        print(f"📤 전송 대상: {CHAT_ID}")
+        print(f"📊 데이터 수: {len(msg.split(chr(10)))} 줄")
+    else:
+        print(f"❌ 전송 오류 (상태코드 {r.status_code}): {r.text[:200]}")
 except Exception as e:
-    print(f"텔레그램 전송 실패: {e}")
+    print(f"⚠️  텔레그램 전송 실패: {e}")
