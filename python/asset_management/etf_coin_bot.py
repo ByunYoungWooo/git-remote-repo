@@ -61,40 +61,45 @@ def get_soup(url: str):
 # 원/달러 환율
 # =========================================================
 def get_exchange_rate():
-    soup = get_soup("https://finance.naver.com/marketindex/")
-    if not soup:
-        return "조회 실패", ""
+    url = "https://api.stock.naver.com/marketindex/exchange/FX_USDKRW"
 
     try:
-        usd_el = soup.select_one("a.head.usd")
-        if not usd_el:
-            raise ValueError("USD 정보를 찾을 수 없습니다.")
+        r = requests.get(
+            url,
+            headers=HEADERS,
+            timeout=10
+        )
+        r.raise_for_status()
 
-        rate_el = usd_el.select_one(".value")
-        change_el = usd_el.select_one(".change")
+        data = r.json()
 
-        if not rate_el:
-            raise ValueError("환율 값을 찾을 수 없습니다.")
+        # Naver API 응답
+        usd = data.get("exchangeInfo")
 
-        cur_float = float(rate_el.get_text(strip=True).replace(",", ""))
-        change_text = change_el.get_text(strip=True) if change_el else "0"
+        if not isinstance(usd, dict):
+            raise ValueError(
+                f"USD 정보를 찾을 수 없습니다. 응답 키: {list(data.keys())}"
+            )
 
-        match = re.search(r"([+-]?\d+(?:\.\d+)?)", change_text)
-        change = float(match.group(1)) if match else 0
+        close_price = usd.get("closePrice")
+        fluctuations = usd.get("fluctuations")
+        fluctuations_ratio = usd.get("fluctuationsRatio")
 
-        pct = (change / cur_float * 100) if cur_float != 0 else 0
+        if close_price is None:
+            raise ValueError("현재 환율(closePrice)을 찾을 수 없습니다.")
 
-        sign_change = "+" if change >= 0 else "-"
-        sign_pct = "+" if pct >= 0 else "-"
+        cur = float(str(close_price).replace(",", ""))
+        change = float(str(fluctuations or "0").replace(",", ""))
+        pct = float(str(fluctuations_ratio or "0").replace(",", ""))
 
         return (
-            f"{cur_float:,.2f}",
-            f"{sign_change}{abs(change):.0f},{sign_pct}{abs(pct):.1f}%"
+            f"{cur:,.2f}",
+            f"{change:+.0f},{pct:+.1f}%"
         )
-    except Exception as e:
-        print(f"환율 파싱 오류: {e}")
-        return "조회 실패", ""
 
+    except Exception as e:
+        print(f"환율 API 조회 오류: {e}")
+        return "조회 실패", ""
 
 # =========================================================
 # 지수 (코스피/코스닥 네이버 API)
@@ -140,27 +145,55 @@ def get_index(code: str):
 # ETF / 주식
 # =========================================================
 def get_stock_price(code):
-    url = f"https://finance.naver.com/item/main.naver?code={code}"
-    soup = get_soup(url)
-    if not soup:
-        return "조회 실패", ""
+    url = f"https://polling.finance.naver.com/api/realtime/domestic/stock/{code}"
 
     try:
-        price_el = soup.select_one(".no_today .blind")
-        if not price_el:
+        r = requests.get(url, headers=HEADERS, timeout=10)
+        r.raise_for_status()
+
+        data = r.json()
+
+        datas = data.get("datas", [])
+        if not datas:
+            raise ValueError("주식 데이터를 찾을 수 없습니다.")
+
+        stock = datas[0]
+
+        # 현재가
+        close_price = stock.get("closePrice")
+        if close_price is None:
             raise ValueError("현재 가격을 찾을 수 없습니다.")
 
-        cur_float = float(price_el.get_text(strip=True).replace(",", ""))
+        cur_float = float(
+            str(close_price).replace(",", "")
+        )
 
-        change_el = soup.select_one(".no_exday .blind")
-        if not change_el:
-            return f"{cur_float:,.2f}", "+0,+0.0%"
+        # 전일 대비
+        change = float(
+            str(stock.get("compareToPreviousClosePrice", "0"))
+            .replace(",", "")
+        )
 
-        change_text = change_el.get_text(strip=True)
-        match = re.search(r"([+-]?\d+(?:\.\d+)?)", change_text)
-        change = float(match.group(1)) if match else 0
+        # 등락률
+        pct = float(
+            str(stock.get("fluctuationsRatio", "0"))
+            .replace(",", "")
+        )
 
-        pct = (change / cur_float * 100) if cur_float != 0 else 0
+        # 네이버 API의 등락 방향 반영
+        fluctuations_type = stock.get("compareToPreviousPrice", {})
+        code_type = str(
+            fluctuations_type.get("code", "")
+            if isinstance(fluctuations_type, dict)
+            else ""
+        )
+
+        if code_type in ["4", "5"]:
+            change = -abs(change)
+            pct = -abs(pct)
+        elif code_type in ["1", "2"]:
+            change = abs(change)
+            pct = abs(pct)
 
         sign_change = "+" if change >= 0 else "-"
         sign_pct = "+" if pct >= 0 else "-"
@@ -169,10 +202,10 @@ def get_stock_price(code):
             f"{cur_float:,.2f}",
             f"{sign_change}{abs(change):.0f},{sign_pct}{abs(pct):.1f}%"
         )
-    except Exception as e:
-        print(f"주식 파싱 오류(code={code}): {e}")
-        return "조회 실패", ""
 
+    except Exception as e:
+        print(f"주식 API 조회 오류(code={code}): {e}")
+        return "조회 실패", ""
 
 # =========================================================
 # 코인 - Upbit API

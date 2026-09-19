@@ -4,3 +4,16 @@
 tel.env
 *.session
 *.session.*
+
+# Old/backup code - kept locally, not tracked
+old_source/
+*_fixed.py
+*.backup
+*.backup.*
+*.py.01
+*.py.02
+
+# Session/credential artifacts
+*.session
+*.session.*
+*.env
