@@ -1,0 +1,6 @@
+# Secrets / credentials - do not commit
+.env
+*.env
+tel.env
+*.session
+*.session.*
