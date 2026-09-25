@@ -1,0 +1,116 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1920" height="1080" viewBox="0 0 1920 1080">
+  <defs>
+    <linearGradient id="sky" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#0f1b4c"/>
+      <stop offset="45%" stop-color="#1e3a8a"/>
+      <stop offset="100%" stop-color="#3b82f6"/>
+    </linearGradient>
+    <radialGradient id="glow" cx="72%" cy="38%" r="55%">
+      <stop offset="0%" stop-color="#93c5fd" stop-opacity="0.55"/>
+      <stop offset="60%" stop-color="#3b82f6" stop-opacity="0.12"/>
+      <stop offset="100%" stop-color="#3b82f6" stop-opacity="0"/>
+    </radialGradient>
+    <linearGradient id="card" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="#ffffff" stop-opacity="0.95"/>
+      <stop offset="100%" stop-color="#eff6ff" stop-opacity="0.88"/>
+    </linearGradient>
+    <pattern id="dots" width="46" height="46" patternUnits="userSpaceOnUse">
+      <circle cx="3" cy="3" r="2.2" fill="#ffffff" opacity="0.14"/>
+    </pattern>
+  </defs>
+
+  <!-- base -->
+  <rect width="1920" height="1080" fill="url(#sky)"/>
+  <rect width="1920" height="1080" fill="url(#glow)"/>
+  <rect width="1920" height="1080" fill="url(#dots)" opacity="0.5"/>
+
+  <!-- soft blobs -->
+  <ellipse cx="300" cy="940" rx="620" ry="300" fill="#1d4ed8" opacity="0.35"/>
+  <ellipse cx="1700" cy="140" rx="560" ry="330" fill="#60a5fa" opacity="0.22"/>
+  <circle cx="150" cy="180" r="90" fill="none" stroke="#ffffff" stroke-opacity="0.18" stroke-width="2"/>
+  <circle cx="1780" cy="880" r="130" fill="none" stroke="#ffffff" stroke-opacity="0.14" stroke-width="2"/>
+
+  <!-- abstract office skyline, bottom -->
+  <g opacity="0.5">
+    <rect x="90"  y="760" width="120" height="320" rx="8" fill="#0b1e52"/>
+    <rect x="240" y="660" width="150" height="420" rx="8" fill="#12275f"/>
+    <rect x="430" y="820" width="100" height="260" rx="8" fill="#0b1e52"/>
+    <rect x="560" y="600" width="170" height="480" rx="8" fill="#16307a"/>
+    <rect x="770" y="780" width="120" height="300" rx="8" fill="#12275f"/>
+  </g>
+
+  <!-- window lights -->
+  <g fill="#bfdbfe">
+    <g opacity="0.75">
+      <rect x="115" y="790" width="16" height="18" rx="2"/><rect x="145" y="790" width="16" height="18" rx="2"/>
+      <rect x="175" y="790" width="16" height="18" rx="2"/><rect x="115" y="830" width="16" height="18" rx="2"/>
+      <rect x="175" y="830" width="16" height="18" rx="2"/><rect x="145" y="870" width="16" height="18" rx="2"/>
+    </g>
+    <g opacity="0.9">
+      <rect x="262" y="690" width="18" height="20" rx="2"/><rect x="300" y="690" width="18" height="20" rx="2"/>
+      <rect x="338" y="690" width="18" height="20" rx="2"/><rect x="262" y="740" width="18" height="20" rx="2"/>
+      <rect x="338" y="740" width="18" height="20" rx="2"/><rect x="300" y="790" width="18" height="20" rx="2"/>
+      <rect x="262" y="840" width="18" height="20" rx="2"/><rect x="338" y="840" width="18" height="20" rx="2"/>
+    </g>
+    <g opacity="0.7">
+      <rect x="585" y="640" width="20" height="22" rx="2"/><rect x="630" y="640" width="20" height="22" rx="2"/>
+      <rect x="675" y="640" width="20" height="22" rx="2"/><rect x="585" y="700" width="20" height="22" rx="2"/>
+      <rect x="675" y="700" width="20" height="22" rx="2"/><rect x="630" y="760" width="20" height="22" rx="2"/>
+      <rect x="585" y="820" width="20" height="22" rx="2"/><rect x="675" y="820" width="20" height="22" rx="2"/>
+      <rect x="630" y="880" width="20" height="22" rx="2"/>
+    </g>
+  </g>
+
+  <!-- big clock face, right -->
+  <g transform="translate(1470,430)">
+    <circle r="300" fill="#ffffff" opacity="0.06"/>
+    <circle r="255" fill="#0b1e52" opacity="0.55"/>
+    <circle r="248" fill="none" stroke="#93c5fd" stroke-opacity="0.7" stroke-width="6"/>
+    <!-- ticks -->
+    <g stroke="#dbeafe" stroke-width="10" stroke-linecap="round">
+      <line x1="0" y1="-238" x2="0" y2="-205"/>
+      <line x1="0" y1="238"  x2="0" y2="205"/>
+      <line x1="-238" y1="0" x2="-205" y2="0"/>
+      <line x1="238" y1="0"  x2="205" y2="0"/>
+    </g>
+    <g stroke="#93c5fd" stroke-width="6" stroke-linecap="round" opacity="0.8">
+      <line x1="119" y1="-119"   x2="102" y2="-102"/>
+      <line x1="119" y1="119"    x2="102" y2="102"/>
+      <line x1="-119" y1="119"   x2="-102" y2="102"/>
+      <line x1="-119" y1="-119"  x2="-102" y2="-102"/>
+    </g>
+    <!-- hands: 9:35 style -->
+    <line x1="0" y1="14" x2="-86" y2="-64" stroke="#eff6ff" stroke-width="16" stroke-linecap="round"/>
+    <line x1="0" y1="14" x2="96" y2="150"  stroke="#93c5fd" stroke-width="10" stroke-linecap="round"/>
+    <circle r="22" fill="#eff6ff"/>
+    <circle r="9" fill="#1e3a8a"/>
+    <!-- check badge -->
+    <g transform="translate(170,190)">
+      <circle r="52" fill="#22c55e"/>
+      <path d="M -24 0 L -6 18 L 26 -16" fill="none" stroke="#ffffff" stroke-width="13" stroke-linecap="round" stroke-linejoin="round"/>
+    </g>
+  </g>
+
+  <!-- floating time chips -->
+  <g font-family="'Apple SD Gothic Neo','Noto Sans KR',sans-serif">
+    <g transform="translate(240,300)">
+      <rect x="-86" y="-34" width="172" height="68" rx="16" fill="#ffffff" opacity="0.92"/>
+      <circle cx="-56" cy="0" r="14" fill="#3b82f6"/>
+      <text x="-28" y="9" font-size="24" font-weight="700" fill="#1e3a8a">09:00</text>
+    </g>
+    <g transform="translate(330,560)">
+      <rect x="-86" y="-34" width="172" height="68" rx="16" fill="#ffffff" opacity="0.8"/>
+      <circle cx="-56" cy="0" r="14" fill="#f59e0b"/>
+      <text x="-28" y="9" font-size="24" font-weight="700" fill="#1e3a8a">18:00</text>
+    </g>
+  </g>
+
+  <!-- birds -->
+  <g stroke="#dbeafe" stroke-width="5" fill="none" stroke-linecap="round" opacity="0.7">
+    <path d="M 950 180 q 20 -22 40 0 q 20 -22 40 0"/>
+    <path d="M 1060 130 q 15 -16 30 0 q 15 -16 30 0"/>
+  </g>
+
+  <!-- bottom fade for text readability -->
+  <rect y="940" width="1920" height="140" fill="#0b1e52" opacity="0.45"/>
+</svg>

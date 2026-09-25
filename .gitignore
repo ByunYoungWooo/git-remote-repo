@@ -17,3 +17,10 @@ old_source/
 *.session
 *.session.*
 *.env
+
+# Python virtualenvs & caches (keep out of git)
+venv/
+**/venv/
+__pycache__/
+*.pyc
+.pytest_cache/
