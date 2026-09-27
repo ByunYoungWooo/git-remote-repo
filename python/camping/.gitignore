@@ -1,0 +1,9 @@
+# 프로젝트 로컬 (리소 루트 .gitignore에 venv/__pycache__ 공통 규칙 존재 — 여기는 명시만)
+.venv/
+__pycache__/
+*.pyc
+.pytest_cache/
+data/*.db*
+output/
+session.json
+.env
