@@ -77,6 +77,7 @@ class SqliteRecorder(Recorder):
             "INSERT INTO run(request_id, trigger_mode) VALUES (?, ?)", (request_id, trigger_mode)
         )
         self.run_id = cur.lastrowid
+        self.conn.commit()   # NFR-05: 기록 즉시 영속 — 크래시 시에도 이전 상태 보존
         return self.run_id
 
     def record_attempt(self, stage, result, error_code=None, detail="", retry_count=0) -> None:
@@ -88,6 +89,7 @@ class SqliteRecorder(Recorder):
             " VALUES (?,?,?,?,?,?,?)",
             (self.run_id, seq, stage, result, error_code, retry_count, detail),
         )
+        self.conn.commit()
 
     def record_result(self, date_chosen, site_key, reservation_no="") -> None:
         req = self.conn.execute(
@@ -98,6 +100,7 @@ class SqliteRecorder(Recorder):
             " VALUES (?,?,?,?,?)",
             (self.run_id, req, date_chosen, site_key, reservation_no),
         )
+        self.conn.commit()
 
     def finish_run(self, outcome, last_error="") -> None:
         self.conn.execute(
@@ -105,3 +108,4 @@ class SqliteRecorder(Recorder):
             "outcome=?,last_error=? WHERE id=?",
             (outcome, last_error or None, self.run_id),
         )
+        self.conn.commit()

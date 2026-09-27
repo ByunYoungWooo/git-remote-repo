@@ -59,9 +59,11 @@ class Orchestrator:
         hitl_policy: HitlPolicy | None = None,
         human_done_probe: Callable[[], bool] | None = None,  # injectable 완료 감지
         sleep_s: Callable[[float], None] = time.sleep,       # injectable (테스트에서 단축)
+        request_id: int | None = None,      # FR-019 — run.request_id(NOT NULL)의 원천 (CLI가 _persist_request 후 전달)
     ) -> None:
         self.ch = channel
         self.rec = recorder
+        self.request_id = request_id
         self.notify = notify or (lambda _t: True)
         self.guard = guard or LoopGuard()
         self.hitl_policy = hitl_policy or HitlPolicy()
@@ -69,7 +71,7 @@ class Orchestrator:
 
     # ------------------------------------------------------------------ run
     def run(self, req: BookingRequest) -> OrchestratorResult:
-        run_id = self.rec.begin_run()
+        run_id = self.rec.begin_run(request_id=self.request_id)
         guard = self.guard
         log.info("실행 시작 (run=%s) park=%s facility=%s 날짜후보=%d",
                  run_id, req.park_key, req.facility_key, len(req.date_candidates))
