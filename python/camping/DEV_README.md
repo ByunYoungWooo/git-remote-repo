@@ -1,9 +1,9 @@
 # 🏕️ campbot — 국립공원 예약 자동화 도구 v1 (개발 가이드)
 
-> PRD/설계 문서: `01_PRD/` (PRD-01~07), 데이터모델: `02_Design/DataModel.md`
+> PRD/설계 문서: `01_PRD/` (PRD-01~07, **v1.3 = 2026-10-03 실측 반영**), 데이터모델: `02_Design/DataModel.md`
 > 본 파일 = **구현 상태 + 실행 방법** 요약. 정책 근거는 각 PRD의 "변경 이력" 참고.
 
-## 현재 구현 상태 (⑧프로토타입, 오프라인 스캐폴딩 완료)
+## 현재 구현 상태 (⑧프로토타입, 오프라인 스캐폴딩 + 실측 라운드2 완료)
 
 | 구성 | 상태 | 비고 |
 |------|------|------|
@@ -18,15 +18,16 @@
 | `modules/hitl.py` | ✅ | C-1: 5분 대기 → 재알림(3분) → 중단+보고, 무한루프 하드캡 포함 |
 | `orchestrator.py` | ✅ | 로그인→시설→날짜순회→선택→제출(=목표달성 C-2), 6개 시나리오 통합검증(T-1~T-6) |
 | `config/settings.py` + `cli.py` | ✅ | run/status/lock-release, pydantic 구성 검증(FR-019), request DB 업서트 |
-| **ProductionUiChannel(KNPS 실체)** | ⏳ 대기 | ⑦ 미확인 U-1~U-3(사이트목록 렌더링 지점·약관조항·hidden필드) 확인 후 구현 — **KNPS 요청 추가는 형 승인 필요** (예산 6회 소진됨) |
-| OCR 캡처 모듈 (AD-7, Q-1b) | ⏳ 대기 | `tesseract` 미설치(apt 권한 필요) + 샘플 이미지 확보 시 |
+| **실측 라운드2 (KNPS 실체)** | ✅ 완료 2026-10-03 | U-1~U-3 전부 확정. F-7(CAPTCHA=제출 직전 팝업 — 원 '상시' 결론 정정)·F-8(사이트목록 셀렉터/엔드포인트)·F-9(auth.do 로그인 게이트). PRD-07 v1.3 §4 |
+| OCR 엔진 (Q-1b) | ✅ 설치·동작 확인 | ddddocr+Pillow (venv, sudo 불필요). **피트폴: KNPS CAPTCHA = 투명배경 RGBA → 흰색 배경 합성 후 인식 필수**. 5/5 샘플 숫자추출 성공, 정답 대조=형 육안(output/knps_c1_20261003/cap_*.png) |
+| **ProductionUiChannel(KNPS 실체)** | ⏳ 다음 작업 | F-8 지문 확보 — 구현 준비 완료. 순서: 로그인(HITL)→공원/야영지(아코디언 전개 후 클릭)→날짜 td 선택→예약하기→CAPTCHA(dd4docr 2회→HITL 폴백)→registerCampReservation.do(=C-2 목표달성) |
 
 ## 준비 (한 번만)
 
 ```bash
 cd /home/wooba/source/python/camping
 python3 -m venv .venv                     # 최초
-./.venv/bin/pip install playwright pydantic httpx python-dotenv pytest
+./.venv/bin/pip install playwright pydantic httpx python-dotenv pytest ddddocr Pillow
 # Playwright Chromium: 호스트 캐시(~/.cache/ms-playwright)에 이미 있음 확인됨
 
 # 출석부 테스트 서버 (포트 8088 확정 — D-5):
