@@ -51,6 +51,15 @@ SLOT_EXTRACT_JS = """() => {
   return out;
 }"""
 
+# F-5b 실측(2026-10-04, campsite.js ver2026002): 무공해영지 슬롯은 예약하기 직전 이용조건
+# 체크 필수 — reservation_before_auth가 #checkEcoTer 미체크면 중단. 표시 중 + 미체크이면 사람 처리.
+ECO_CONSENT_REQUIRED_JS = """() => {
+  const box = document.querySelector('#ecoTerConfirm');
+  if (!box || !(box.offsetWidth || box.offsetHeight)) return false;   // 표시 안 됨 = 일반 사이트
+  const cb = document.querySelector('#checkEcoTer');
+  return !(cb && cb.checked);
+}"""
+
 NETFUNNEL_JS = """() => {
   const e = document.getElementById('NetFunnel_Skin_Top');
   if (e && (e.offsetParent !== null || getComputedStyle(e).display !== 'none')) return true;
@@ -60,13 +69,15 @@ NETFUNNEL_JS = """() => {
   return false;
 }"""
 
+# F-5c 실측(2026-10-04 E2E 경계 캡처 대조): loginPopup = #loginPopup div — 열림 시 class에 'active' 추가 +
+# common.js mmbLoginPopup.do AJAX로 폼(input[name=mmbId]/[name=passWd])이 전입된다.
+# (구 셀렉터 userId/loginId/mmbLoginID은 페이지 어디에도 존재 ❌)
 LOGIN_POPUP_JS = """() => {
-  const e = document.querySelector('#loginPopup, [class*="login-popup"], [id*="mmbLogin" i] + .modal-popup');
-  if (!e) return false;
-  const vis = el => el && (el.offsetParent !== null || getComputedStyle(el).display !== 'none');
-  // auth.do 401 → loginPopup 발화 여부: 로그인 양식 input이 화면에 보이는지
-  const idInput = document.querySelector('input[name="userId"], input[name="loginId"], #mmbLoginID, [id*="mmbLogin"] input[type="text"]');
-  return vis(idInput) || (e && vis(e));
+  const lp = document.querySelector('#loginPopup');
+  if (!lp) return false;
+  const active = /(^|\\s)active(\\s|$)/.test(lp.className || '');
+  const idInput = lp.querySelector("input[name='mmbId']");
+  return active || !!idInput;
 }"""
 
 
@@ -212,32 +223,38 @@ class UiKnpsChannel(KnpsChannel):
         self._ensure_browser()
         page = self.browser.page_ref
 
-        uid, pw = load_env_credentials() if user_id in ("", "<from-config>") else (user_id or "", password or "")
         did_autofill = False
         if uid and pw:
             try:
-                # KNPS 로그인 화면 진입 (C-1 실측: a[href*="mmbLogin"] 존재 확인)
-                link = page.locator('a[href*="mmbLogin"]').first
-                if link.count() > 0 and link.is_visible():
-                    with page.expect_navigation(timeout=8_000, wait_until="domcontentloaded"):
-                        link.click()
-            except Exception:  # noqa: BLE001 — 로그인 링크가 이미 닫힌 상태일 수 있음(이미 로그인 화면)
-                pass
-            time.sleep(1.5)   # NFR-03
-            for sel in ("input[name='userId']", "input[name='loginId']", "#mmbLoginID", "input[type='text']"):
-                loc = page.locator(sel).first
-                if loc.count() > 0 and loc.is_visible():
+                # F-5c 실측(2026-10-04): 로그인 폼 = #loginPopup 내 input[name=mmbId]/[name=passWd]
+                # (구 셀렉터 userId/loginId/mmbLoginID은 모두 존재 ❌ — E2E 경계 캡처 HTML로 정정).
+                # 팝업 미발기 시 loginPopup('') 호출 (common.js: mmbLoginPopup.do AJAX → 폼 전입+openPopup)
+                if page.locator("#loginPopup input[name='mmbId']").count() == 0:
                     try:
-                        loc.fill(uid)
-                        pw_loc = page.locator("input[type='password']").first
+                        page.evaluate("typeof loginPopup === 'function' && loginPopup('')")
+                        time.sleep(1.5)   # NFR-03 + mmbLoginPopup.do AJAX 렌더 대기
+                    except Exception as e:  # noqa: BLE001 — 이미 로그인 화면/팝업 오픈 상태일 수 있음
+                        log.warning("loginPopup 발화 실패(%s) — 기존 상태로 진행", type(e).__name__)
+                id_loc = page.locator("#loginPopup input[name='mmbId']").first
+                pw_loc = page.locator("#loginPopup input[name='passWd']").first
+                btn = page.locator("#loginPopup .btn-login").first
+                if id_loc.count() > 0 and pw_loc.count() > 0:
+                    # popupUserLogin(): AJAX POST /mmb/mmbLoginProc.do — 페이지 이동 ❌, 성공 시 fn_loginProc 콜백
+                    with page.expect_response(lambda r: "mmbLoginProc.do" in (r.url or ""), timeout=20_000) as rl:
+                        id_loc.fill(uid)
+                        time.sleep(0.3)
                         pw_loc.fill(pw)
-                        btn = page.locator('button:has-text("로그인"), input[type="submit"]').first
                         if btn.count() > 0 and btn.is_visible():
                             btn.click()
-                        did_autofill = True
-                        break
-                    except Exception as e:  # noqa: BLE001
-                        log.warning("자동 로그인 입력 실패(%s) — 사람 대기 경로로", type(e).__name__)
+                        else:
+                            pw_loc.press("Enter")   # common.js loginKeyPress = 동일 제출 경로
+                    resp = rl.value
+                    did_autofill = True
+                    log.info("자동 로그인 제출 완료 (mmbLoginProc.do HTTP %s)", getattr(resp, "status", "?"))
+                else:
+                    log.warning("로그인 폼 필드(mmbId/passWd) 미발견 — 사람 대기 경로로")
+            except Exception as e:  # noqa: BLE001
+                log.warning("자동 로그인 입력 실패(%s) — 사람 대기 경로로", type(e).__name__)
         if not did_autofill:
             self.browser.polite_delay()
 
@@ -341,8 +358,10 @@ class UiKnpsChannel(KnpsChannel):
         """td 클릭 → 예약하기 팝업 → CAPTCHA(OCR→HITL) → 확인 → registerCampReservation.do.
 
         반환 {"reservation_no", "status_snapshot"} — 결제 진행은 사람(C-2 경계, 자동화 범위 ❌).
-        party_size/vehicles: v1 폼 필드 미확정(PRD-07 §4 — vehicle/license 입력 셀렉터 미실측)
-            → 미입력 허용(사이트 기본값), 실측 보완 시점에 반영. 로그에 출력하지 않음(NFR-06).
+        party_size/vehicles: F-5b 실측 확정(2026-10-04) — 차량번호(carNo)=무공해영지 전용
+            조건 필드(isGreenpoint, 비공개=정상 제출), 자격구분/장애인등록번호 행(brfeTerYn)
+            = 무장애영지 슬롯(data-brfe-ter-yn=Y)에서만 표시 → 일반 사이트는 미입력 정상.
+            체류기간=1박 2일 기본값(length-stay selected). 로그에 출력하지 않음(NFR-06).
         """
         page = self._ensure_browser()
         if not self._slots or not self._current_date:
@@ -372,8 +391,21 @@ class UiKnpsChannel(KnpsChannel):
                 log.warning("체류기간 클릭 실패(기본값 유지 시도): %s", type(e).__name__)
 
         # 3) "예약하기" → CAPTCHA 팝업 (#automatic-character)
-        trigger = page.locator('[data-popup="automatic-character"]').first
-        if trigger.count() == 0 or not trigger.is_visible():
+        #    F-5b 실측(2026-10-04): 실제 버튼 = a[onclick*="reservation_before_auth"] —
+        #    data-popup 앵커는 display:none 숨은 요소로, campsite.js가 내부 trigger('click')하는
+        #    대상일 뿐 직접 클릭 시 흐름이 실행되지 않는다(구 구현 버그, E2E 실측으로 발견).
+        try:
+            if bool(page.evaluate(ECO_CONSENT_REQUIRED_JS)):
+                run_human_gate(
+                    HitlPolicy(),
+                    notify=_notify_static("🔔 무공해영지 이용조건이 있습니다 — 브라우저에서 확인 후 동의 체크해 주세요."),
+                    is_done=lambda: not bool(page.evaluate(ECO_CONSENT_REQUIRED_JS)),
+                )
+        except Exception as e:  # noqa: BLE001 — 판정 오류는 진행(버튼 클릭 시 JS가 다시 검증)
+            log.warning("무공해영지 동의 판정 실패(진행): %s", type(e).__name__)
+
+        trigger = page.locator('a.btn-register[onclick*="reservation_before_auth"]').first
+        if trigger.count() == 0:
             shot, _ = self.browser.capture_error("knps_no_trigger")
             raise ChannelError("'예약하기' 트리거 미발견 [capture=%s]" % shot, code="NO_TRIGGER")
         with page.expect_response(lambda r: "reserCaptcha.do" in (r.url or ""), timeout=15_000) as cap_rl:

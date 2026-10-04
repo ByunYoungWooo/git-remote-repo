@@ -190,3 +190,36 @@ class TestUiChannelContract:
 
 if __name__ == "__main__":  # pragma: no cover
     raise SystemExit(pytest.main([__file__, "-v"]))
+
+
+class TestSelectorsLiveVerified20261004:
+    """E2E 실접속 검증(2026-10-04, 형 승인)으로 확정된 셀렉터 회귀 방지.
+
+    근거: output/knps_e2e_20261004/ 경계 캡처 HTML + common.js/campsite.js 원문 —
+      - 구 셀렉터(userId/loginId/mmbLoginID)는 KNPS 페이지 어디에도 존재 ❌
+      - 실제 로그인 폼 = #loginPopup 내 mmbId/passWd, 열림 표시 = class 'active' (F-5c)
+      - "예약하기" 실제 트리거 = a.btn-register[onclick*="reservation_before_auth"] —
+        data-popup 앵커는 display:none 숨은 요소(직접 클릭 시 흐름 미실행) (F-5a)
+    """
+
+    def test_login_popup_js_uses_real_fields(self):
+        from campbot.channels.ui import LOGIN_POPUP_JS as js
+
+        assert "userId" not in js and "loginId" not in js   # 존재 ❌인 구 셀렉터 회귀 방지
+        assert "#loginPopup" in js
+        assert "mmbId" in js                                 # 실측 폼 필드 (common.js popupUserLogin)
+        assert "active" in js                                # openPopup = class active 부여
+
+    def test_submit_booking_trigger_is_real_button(self):
+        import inspect
+
+        from campbot.channels.ui import UiKnpsChannel
+
+        src = inspect.getsource(UiKnpsChannel.submit_booking)
+        assert 'reservation_before_auth' in src             # F-5a: 실제 트리거 (btn-register onclick)
+        assert '[data-popup="automatic-character"]' not in src   # display:none 숨은 앵커 — 직접 클릭 불가
+
+    def test_eco_consent_gate_present(self):
+        from campbot.channels.ui import ECO_CONSENT_REQUIRED_JS as js
+
+        assert "#checkEcoTer" in js                          # F-5b: 무공해영지 이용조건 동의

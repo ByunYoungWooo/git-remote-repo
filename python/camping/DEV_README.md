@@ -1,9 +1,9 @@
 # 🏕️ campbot — 국립공원 예약 자동화 도구 v1 (개발 가이드)
 
-> PRD/설계 문서: `01_PRD/` (PRD-01~07, **v1.3 = 2026-10-03 실측 반영**), 데이터모델: `02_Design/DataModel.md`
+> PRD/설계 문서: `01_PRD/` (PRD-01~07, **v1.4 = 2026-10-04 E2E 실측 반영**), 데이터모델: `02_Design/DataModel.md`
 > 본 파일 = **구현 상태 + 실행 방법** 요약. 정책 근거는 각 PRD의 "변경 이력" 참고.
 
-## 현재 구현 상태 (⑧프로토타입, 오프라인 스캐폴딩 + 실측 라운드2 완료)
+## 현재 구현 상태 (⑧프로토타입, E2E 실접속 검증 완료 2026-10-04)
 
 | 구성 | 상태 | 비고 |
 |------|------|------|
@@ -21,8 +21,11 @@
 | `orchestrator.py` | ✅ | 로그인→시설→날짜순회→선택→제출(=목표달성 C-2), 6개 시나리오 통합검증(T-1~T-6) |
 | `config/settings.py` + `cli.py` | ✅ | run/status/lock-release, pydantic 구성 검증(FR-019), request DB 업서트 |
 | **실측 라운드2 (KNPS 실체)** | ✅ 완료 2026-10-03 | U-1~U-3 전부 확정. F-7(CAPTCHA=제출 직전 팝업 — 원 '상시' 결론 정정)·F-8(사이트목록 셀렉터/엔드포인트)·F-9(auth.do 로그인 게이트). PRD-07 v1.3 §4 |
+| **E2E 실접속 검증 (KNPS 라이브)** | ✅ 완료 2026-10-04 | 형 접속 승인 후 `probes/e2e_channel.py`로 UiKnpsChannel 전체 경로 실측: 검색페이지(NetFunnel ❌)→설악산 아코디언→설악동(B031005, 슬롯 1411개)→list_sites(73사이트/A열·B열·카라반 정상 파싱)→td 클릭(`reserFlag=Y` 확인)→"예약하기"(auth.do 401 분기)→**형 로그인(HITL)**→자동 재실행으로 CAPTCHA 팝업 도달(**이미지 디코딩 ✅ 실물 OCR 숫자 추출 ✅**)→취소로 종료. **CAPTCHA 입력 ❌ 예약제출 ❌ 결제 ❌ — C-2 경계 준수**. 산출물 `output/knps_e2e_20261004/` |
+| **F-5/F-5a/F-5b 정정** | ✅ 확정 2026-10-04 | campsite.js 원문+E2E 캡처로: 차량번호=무공해영지 전용(일반사이트 미입력 정상), 자격구분/장애인등록번호 행=무장애영지 슬롯(`data-brfe-ter-yn=Y`) 전용. **구 ui.py "예약하기" 버그 수정** — 숨은 앵커 `data-popup` 클릭 → 실제 버튼 `a.btn-register[onclick*="reservation_before_auth"]`(F-5a). 무공해영지 동의 게이트(F-5b) 추가 |
+| **로그인 셀렉터 실측 정정 (F-5c)** | ✅ 확정 2026-10-04 | 실제 폼 = `#loginPopup input[name=mmbId]/[name=passWd]`(열림=`class active`, common.js `mmbLoginPopup.do` AJAX 전입). 구 셀렉터 userId/loginId/mmbLoginID은 존재 ❌. `login()` 자동 입력 경로 + `LOGIN_POPUP_JS` 판정 전부 정정 |
 | OCR 엔진 (Q-1b) | ✅ 설치·동작 확인 | ddddocr+Pillow (venv, sudo 불필요). **피트폴: KNPS CAPTCHA = 투명배경 RGBA → 흰색 배경 합성 후 인식 필수**. 5/5 샘플 숫자추출 성공, 정답 대조=형 육안(output/knps_c1_20261003/cap_*.png) |
-| **ProductionUiChannel(KNPS 실체)** | ✅ 구현 완료 (2026-10-04) | `channels/ui.py` — F-8/F-9 지문 반영, CLI 연결, 유닛테스트 52 passed. 미실측 잔여: 차량번호/자격구분 폼 필드 셀렉터(v1은 기본값 유지), 실접속 E2E = 다음 승인 필요 (형 원칙: 로그인/제출=HITL) |
+| **ProductionUiChannel(KNPS 실체)** | ✅ 구현·E2E 검증 완료 (2026-10-04) | `channels/ui.py` — F-5a/F-5b/F-5c 정정 반영, CLI 연결. 유닛테스트 55 passed (셀렉터 회귀방지 3개 신규). 미실측 잔여 ❌ 없음 — 남은 경계: 실제 예약 제출 = 형 승인 시에만 (C-2, HITL) |
 
 ## 준비 (한 번만)
 
@@ -39,8 +42,15 @@ cd /home/wooba/source/php/attendance/public && php -S 0.0.0.0:8088 &
 ## 테스트 (KNPS 접속 없음 — 전부 로컬)
 
 ```bash
-./.venv/bin/python -m pytest tests/ -q     # 현재 52 passed (+2 skipped: 출석부 서버 미기동)
+./.venv/bin/python -m pytest tests/ -q     # 현재 55 passed (+2 skipped: 출석부 서버 미기동)
 # 출석부 E2E(서버 기동 시에만 실행, 안 돼면 skip): tests/test_attendance_login.py
+```
+
+### KNPS 실접속 E2E (형 접속 승인 필요 — 제출 경계 포함)
+
+```bash
+./.venv/bin/python probes/e2e_channel.py   # 로그인→CAPTCHA 팝업 확인(이미지 디코딩+OCR 검증)까지, 취소로 종료
+# 세션 쿠키: data/e2e_session.json (형 로그인 세션 재사용 — 자격증명 ❌ 저장 불가)
 ```
 
 ## 사용 (CLI)

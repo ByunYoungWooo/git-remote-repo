@@ -86,7 +86,9 @@
 |---|------|------|
 | F-3 ⚠️ | **야영장 URL 오기 정정**: 실제 = `https://res.knps.or.kr/reservation/searchSimpleCampReservation.do` (본 문서 §1·F-2의 `/reservation/camp/...`는 **404 — 홈 HTML 원본 링크 기준으로 `camp/` 세그먼트 없음이 정답**) | ⑧ 프로브: camp/ 포함=404, 미포함=HTTP 200 |
 | F-4 | 결제 엔드포인트 3종 확인: `/pay/checkPlusForPay.do`(체크플러스), `/pay/iPinForPay.do`(i-PIN), `/common/authGpkiForPay.do`(공동인증) — HITL(사람 결제, C-1) 설계 근거 강화; 제출 완료 후 결제 단계 = 사람이 수행 | page.html 인라인 JS |
-| F-5 | 추가 인증/할인 필드: `usNm`(주민번호 뒷자리 password), 자격검증 버튼(`exemptionAuthText`), `dstpRegNo`(장애인등록번호), 할인 radio(`rsvtDvcdDs`, `piaDiv*Yn`) — v1 범위 외(기본값 유지), 구현 시 disabled 상태 확인 필요 | page.html |
+| F-5 ✅확정 (v1.4) | 조건부 필드 구분 확정(campsite.js ver2026002 원문 분석): **차량번호 `#carNo` = 무공해영지 전용**(`isGreenpoint=='Y'`일 때만 제출·검증 — 일반 사이트는 빈값 정상), **자격구분 `rsvtDvcdDs`(radio 14/11)·장애인등록번호 `dstpRegNo` 행(`[data-area-name="brfeTerYn"]`) = 무장애영지 슬롯(`data-brfe-ter-yn=Y`)에서만 표시** (기타=숨김, 제출값 빈). `usNm`(주민번호 뒷자리)/자격검증 버튼 = 결제·할인 인증 단계(예약 접수 후 범위 밖) | campsite.js `reservation()`/`reservationStep2()`, c1 page.html 팝업 tbody |
+| F-5a | "예약하기" 실제 트리거 = `a.btn-register[onclick*="reservation_before_auth"]` (board-bottom). `data-popup="automatic-character"` 앵커는 display:none 숨은 요소로 campsite.js가 내부에서 `trigger('click')`만 수행 — 채널 구현은 btn-register 클릭 필요 (구 ui.py 버그, 2026-10-04 실측으로 발견·수정) | campsite.js, c2 page.html |
+| F-5b | 무공해영지(`data-eco-ter-yn=Y`) 슬롯은 예약하기 직전 `#checkEcoTer` 이용조건 동의 필수 (미체크 시 JS 중단). 채널: 표시 중+미체크이면 HITL 게이트 경유 후 진행 | campsite.js `reservation_before_auth()` |
 | F-6 | CAPTCHA 이미지 src는 `.captcha span.captcha` 내부 img로 동적 삽입 정적 HTML에 없음(`fnCapchaRefresh`가 `/reserCaptcha.do?dummy=<ts>` 재설정) — OCR 모듈(AD-7)은 `span.captcha img` 대상 | page.html JS |
 
 > **변경 이력**
@@ -95,6 +97,7 @@
 > - v1.1 (2026-09-28): **⑧ 실측 반영 (형 승인, 최소 부하)** — U-1 ✅(CAPTCHA = 검색 단계 상시), U-3 ✅(hidden 필드=JS 자동 처리 확인), F-3 URL 정정, F-4~F-6 신규 발견. U-2만 미확정 유지
 > - v1.2 (2026-10-03): **U-2 ✅ 확정** — 3개 정책 페이지(usage/copyright/refund) 전수 확인 결과 "명시적 자동화 금지 조항" 부재. 저작권정책=지적재산권 전용, 자동화 금지 문구 없음. F-2 NetFunnel 기술 차단 리스크는 별도 유효 유지
 > - v1.3 (2026-10-03): **⑧ 실측 라운드2 완료 (형 승인 "실측부터 가 봅시다"+"실접속도 허용")** — F-7(U-1 정정: CAPTCHA는 제출 직전 팝업), F-8(사이트목록 셀렉터/데이터모델 확정), F-9(auth.do 로그인 게이트 확인). C-1 OCR 실측 5/5 숫자추출 성공(ddddocr, 투명배경→흰색 합성 필수 피트폴). 산출물 `output/knps_c1_20261003/`, `knps_c2_20261003/`, 스크립트 `probes/`
+> - v1.4 (2026-10-04): **F-5 조건부 필드 확정 (형 접속 승인 후 campsite.js 원문 분석, 부하 0)** — 차량번호=무공해영지 전용, 자격구분·장애인등록번호 행=무장애영지 슬롯 전용 → 일반 사이트 v1 기본값 제출에 결함 없음. F-5a "예약하기" 실제 트리거 정정(`a.btn-register[onclick*="reservation_before_auth"]`) + 구 ui.py 버그 수정. F-5b 무공해영지 이용조건 동의(HITL) 추가
 
 ---
 
