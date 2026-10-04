@@ -14,13 +14,15 @@
 | `core/browser.py` ManagedBrowser | ✅ | sync API·headless OFF 기본(AD-3)·세션 쿠키 저장/재사용(FR-002)·에러 캡처 |
 | `core/logutil.py` PII 마스킹 | ✅ | RRN 전체 비노출, 전화번호 끝자리 4만 표시 (NFR-05/07 강제장치) |
 | `channel.py` KnpsChannel ABC | ✅ | AD-6 추상화 — UI/API/Mock 채널 교체 가능 지점 |
+| **`channels/ui.py` UiKnpsChannel** | ✅ 구현 2026-10-04 | KNPS 실제 UI 채널 (F-8/F-9 실측 지문): 로그인(auth.do 판정+C-1 HITL 게이트)→공원 아코디언 전개→야영지 클릭(campsiteList.do 대기)→열=날짜 슬롯 파싱(list_sites)→td 클릭→예약하기→CAPTCHA(ddddocr 2회→C-1 폴백)→registerCampReservation.do(=C-2). NetFunnel 감지=NETFUNNEL_WAIT 차단코드. CLI `_default_channel_factory` 연결됨 |
+| **`captcha.py` C-1 OCR** | ✅ 구현 2026-10-04 | 흰색 합성 피트폴 대응(C-1 실측), lazy ddddocr, 숫자 정규화, 실패="" (HITL 폴백 경유). 유닛테스트 5개(monkeypatch) |
 | `modules/priority.py` | ✅ | FR-008 순서이관 상태머신 (순수함수·pytest 단독 검증) |
 | `modules/hitl.py` | ✅ | C-1: 5분 대기 → 재알림(3분) → 중단+보고, 무한루프 하드캡 포함 |
 | `orchestrator.py` | ✅ | 로그인→시설→날짜순회→선택→제출(=목표달성 C-2), 6개 시나리오 통합검증(T-1~T-6) |
 | `config/settings.py` + `cli.py` | ✅ | run/status/lock-release, pydantic 구성 검증(FR-019), request DB 업서트 |
 | **실측 라운드2 (KNPS 실체)** | ✅ 완료 2026-10-03 | U-1~U-3 전부 확정. F-7(CAPTCHA=제출 직전 팝업 — 원 '상시' 결론 정정)·F-8(사이트목록 셀렉터/엔드포인트)·F-9(auth.do 로그인 게이트). PRD-07 v1.3 §4 |
 | OCR 엔진 (Q-1b) | ✅ 설치·동작 확인 | ddddocr+Pillow (venv, sudo 불필요). **피트폴: KNPS CAPTCHA = 투명배경 RGBA → 흰색 배경 합성 후 인식 필수**. 5/5 샘플 숫자추출 성공, 정답 대조=형 육안(output/knps_c1_20261003/cap_*.png) |
-| **ProductionUiChannel(KNPS 실체)** | ⏳ 다음 작업 | F-8 지문 확보 — 구현 준비 완료. 순서: 로그인(HITL)→공원/야영지(아코디언 전개 후 클릭)→날짜 td 선택→예약하기→CAPTCHA(dd4docr 2회→HITL 폴백)→registerCampReservation.do(=C-2 목표달성) |
+| **ProductionUiChannel(KNPS 실체)** | ✅ 구현 완료 (2026-10-04) | `channels/ui.py` — F-8/F-9 지문 반영, CLI 연결, 유닛테스트 52 passed. 미실측 잔여: 차량번호/자격구분 폼 필드 셀렉터(v1은 기본값 유지), 실접속 E2E = 다음 승인 필요 (형 원칙: 로그인/제출=HITL) |
 
 ## 준비 (한 번만)
 
@@ -37,7 +39,7 @@ cd /home/wooba/source/php/attendance/public && php -S 0.0.0.0:8088 &
 ## 테스트 (KNPS 접속 없음 — 전부 로컬)
 
 ```bash
-./.venv/bin/python -m pytest tests/ -v     # 현재 36 passed
+./.venv/bin/python -m pytest tests/ -q     # 현재 52 passed (+2 skipped: 출석부 서버 미기동)
 # 출석부 E2E(서버 기동 시에만 실행, 안 돼면 skip): tests/test_attendance_login.py
 ```
 
@@ -70,8 +72,8 @@ python -m campbot.cli lock-release --yes          # 진행중 락 수동 해제 
 }
 ```
 
-> **참고**: `park_key`/`facility_key`/`site_key`의 실제 KNPS 값은 ⑦단계 실측(U-1~U-3)으로 확정될 값입니다.
-> 그 전까지 CLI `run`은 MockChannel 주입(테스트 코드와 동일한 방식)으로만 동작합니다 — 의도된 상태.
+> **참고 (실측 확정값, PRD-07 v1.3 F-8)**: `park_key`=공원 메뉴명(예: `"설악산"`), `facility_key`=야영지 코드(예: `B031005` — 설악동), `site_key`=`data-title` 마지막 세그먼트(예: `A1`, `카라반3`).
+> 자격증명은 env 전용(NFR-06): `CAMPBOT_KNPS_ID` / `CAMPBOT_KNPS_PW` (미설정 시 로그인=사람 직접, C-1 게이트).
 
 ## 설계 원칙 리마인더 (위반 시 회귀 테스트가 잡아야 함)
 

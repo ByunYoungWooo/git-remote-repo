@@ -252,10 +252,10 @@ def main(argv: list[str] | None = None, channel_factory: Callable[[], KnpsChanne
 
 
 def _default_channel_factory() -> KnpsChannel:
-    raise RuntimeError(
-        "ProductionUiChannel 미연결 — KNPS UI 채널은 ⑧ 이후 실측(U-1~U-3)과 함께 구현 예정. "
-        "테스트/개발에서는 channel_factory 인자로 MockChannel을 주입하세요."
-    )
+    """KNPS 실제 UI 채널 (PRD-07 v1.3 F-8/F-9 실측 지문 구현 — ⑨단계 준비 완료). 자격증명은 env 전용(NFR-06)."""
+    from .channels import UiKnpsChannel
+
+    return UiKnpsChannel()
 
 
 if __name__ == "__main__":
