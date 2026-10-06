@@ -1,0 +1,17 @@
+# campbot systemd 서비스 — 설치: cp deploy/systemd-campbot.service ~/.config/systemd/user/campbot.service && systemctl --user daemon-reload
+# 주의: 이 파일의 값은 예시일 뿐. 실제 경로/토큰은 .env(600) 전용 (NFR-06).
+[Unit]
+Description=campbot - KNPS camping reservation automation run
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+WorkingDirectory=/home/wooba/source/python/camping
+ExecStart=/usr/bin/env bash /home/wooba/source/python/camping/deploy/run_campbot.sh
+# 무한리부트 방어 (NFR-08): 1분 내 재기동 5회 → stop, 다음 트리거까지 대기
+StartLimitIntervalSec=60
+StartLimitBurst=5
+
+[Install]
+WantedBy=default.target

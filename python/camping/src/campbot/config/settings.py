@@ -3,11 +3,13 @@
 원칙 (NFR-06): 자격증명·PII는 환경변수(.env) 전용 — 코드/로그에 노출 금지.
   - CAMPBOT_TG_TOKEN / CAMPBOT_TG_CHAT_ID : Telegram (notify)
   - CAMPBOT_HOME                          : 데이터 루트(기본 ./data) — db·lock·session 위치
+  - CAMPBOT_KNPS_ID / CAMPBOT_KNPS_PW     : KNPS 자격증명 (channels/ui.py 직접 로드 — NFR-06)
 """
 from __future__ import annotations
 
 import json
 import os
+from dotenv import load_dotenv
 from pathlib import Path
 from typing import Literal
 
@@ -72,6 +74,11 @@ class RequestConfig(BaseModel):
             if not re.fullmatch(r"\d{4}-\d{2}-\d{2}", d):
                 raise ValueError(f"날짜 형식 오류(YYYY-MM-DD 필요): {d}")
         return v
+
+
+_CWD_ENV = Path(".env").resolve()
+if _CWD_ENV.exists():   # NFR-06: 자격증명·토큰은 .env 전용 (CLI/서비스 어디서나 동일 동작)
+    load_dotenv(_CWD_ENV, override=False)  # 실제 env 우선 — systemd Environment= 과 충돌 ❌
 
 
 def load_settings(env: dict[str, str] | None = None) -> Settings:

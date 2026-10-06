@@ -77,6 +77,46 @@ class LoopGuard:
         self._errors.clear()
 
 
+def run_with_guard(
+    guard: LoopGuard,
+    fn,                                              # callable() -> 결과 (실패 시 ChannelError/LoopAbortError 등 발생)
+    log=None,                                        # logging.Logger — None이면 no-op
+    sleep=time.sleep,                                # injectable (테스트 단축)
+) -> Any:
+    """LoopGuard 정책으로 단계 실행 (NFR-04/Q-2a).
+
+    규칙: 총 시도 상한 / 동일에러 연속 2회 즉시중단 / 차단신호(NETFUNNEL_WAIT·IP_SUSPECTED)
+    즉시중단(재시도 ❌) / 재시도 지연 = retry_delay_range_s 랜덤.
+    성공 시 결과 반환, 정책 도달/차단은 LoopAbortError 전파.
+    """
+    last_code, last_detail = "UNKNOWN", ""
+    while True:
+        try:
+            result = fn()
+            guard.record_success(None)
+            return result
+        except LoopAbortError:
+            raise
+        except Exception as e:   # noqa: BLE001 - 채널 오류·예외 공통 (error_code 추출은 ChannelError 기준)
+            code = str(getattr(e, "code", None) or type(e).__name__)
+            detail = str(e)[:200]
+            last_code, last_detail = code, detail
+            try:
+                guard.record_failure(code, detail)
+            except LoopAbortError as abort:
+                if log:
+                    log.error("LoopGuard 중단: %s", abort.reason)
+                raise abort
+            if not guard.can_retry():
+                raise LoopAbortError(
+                    f"총 시도 상한 {guard.max_total_attempts}회 도달: [{code}] {detail}"
+                ) from e
+            delay = guard.next_delay_s()
+            if log:
+                log.warning("재시도 대기 %.0fs — [%s] %s", delay, code, detail)
+            sleep(delay)
+
+
 def make_guard(
     max_attempts: int | None = None,
     delay_range: tuple[float, float] | None = None,

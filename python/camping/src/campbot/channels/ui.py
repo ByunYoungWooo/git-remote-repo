@@ -131,6 +131,14 @@ def load_env_credentials() -> tuple[str, str]:
     return os.environ.get("CAMPBOT_KNPS_ID", ""), os.environ.get("CAMPBOT_KNPS_PW", "")
 
 
+def load_ft_credentials() -> tuple[str, str]:
+    """숲나들e(foresttrip.go.kr) 자격증명 — CAMPBOT_FT_ID / CAMPBOT_FT_PW (NFR-06 env 전용).
+
+    미설정 시 숲나들e 로그인 = C-1 HITL(사람 직접) 경유. 값 자체는 로그에 ❌.
+    """
+    return os.environ.get("CAMPBOT_FT_ID", ""), os.environ.get("CAMPBOT_FT_PW", "")
+
+
 # --------------------------------------------------------------------------- 채널 구현
 class UiKnpsChannel(KnpsChannel):
     """KNPS 실제 UI 채널. ManagedBrowser 소유(생성/종료) + 실측 셀렉터 기반."""
