@@ -92,3 +92,32 @@ python -m campbot.cli lock-release --yes          # 진행중 락 수동 해제 
 3. **PII 비노출** — 로그·알림 마스킹 강제, 자격증명/주민번호는 `.env`(권한 600) 전용, DB 저장 ❌
 4. **목표 경계(C-2)** — "예약 접수 완료"까지가 시스템 목표, 결제 이후 ❌
 5. **KNPS 자제** — 요청 최소화·지연 ≥2s·차단신호 감지 시 즉시 중단 (NFR-03/Q-2a)
+
+## ⑬ 운영환경 (systemd + TG 알림) — 준비 완료 2026-10-06
+
+### 파일 구조
+```
+deploy/
+├── campbot.env.example          # .env 템플릿 (실동작 = 프로젝트 루트 .env, 권한 600)
+├── run_campbot.sh               # systemd 런너 — requests/current.json 존재 시 실행
+└── systemd-campbot.service.example   # user service 예시 (StartLimitBurst=5 무한리부트 방어)
+
+requests/                        # 예약 요청 JSON 배치 위치 (*.json = gitignore)
+```
+
+### 설치 순서
+1. `.env` 생성: `cp deploy/campbot.env.example .env && vi .env && chmod 600 .env`
+   - `CAMPBOT_TG_TOKEN`, `CAMPBOT_TG_CHAT_ID` = Telegram 알림 (FR-016/017)
+   - `CAMPBOT_KNPS_ID` / `CAMPBOT_KNPS_PW` = KNPS 자격증명 (미설정 시 C-1 HITL)
+2. systemd 서비스: `cp deploy/systemd-campbot.service ~/.config/systemd/user/campbot.service && systemctl --user daemon-reload`
+3. 트리거: 요청 JSON을 `requests/current.json`으로 배치 → `systemctl --user start campbot.service`
+
+### 보안 원칙 (NFR-06)
+- 자격증명·토큰은 **`.env`(600) 전용** — 코드/로그/Git에 절대 기록 ❌
+- `data/` 전체는 gitignore 대상 (세션쿠키·DB 포함)
+- 숲나들e(foresttrip.go.kr) 자격증명은 `.env`에만 보관, 채널 미구현 시 HITL 경유
+
+### 테스트 (67 passed)
+```bash
+PYTHONPATH=src ./.venv/bin/python -m pytest tests/ -q   # 2 skipped: 출석부 서버 미기동
+```
