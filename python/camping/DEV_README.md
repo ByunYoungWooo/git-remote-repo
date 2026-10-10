@@ -1,6 +1,6 @@
 # 🏕️ campbot — 국립공원 예약 자동화 도구 v1 (개발 가이드)
 
-> PRD/설계 문서: `01_PRD/` (PRD-01~07, **v1.4 = 2026-10-04 E2E 실측 반영**), 데이터모델: `02_Design/DataModel.md`
+> PRD/설계 문서: `01_PRD/` (PRD-01~08 — KNPS 기술 분석 v1.4 = 2026-10-04 E2E 실측 반영, **숲나들e 기술 분석 PRD-08 v1.0 = 2026-10-11**), 데이터모델: `02_Design/DataModel.md`
 > 본 파일 = **구현 상태 + 실행 방법** 요약. 정책 근거는 각 PRD의 "변경 이력" 참고.
 
 ## 현재 구현 상태 (⑧프로토타입, E2E 실접속 검증 완료 2026-10-04)
@@ -90,6 +90,8 @@ python -m campbot.cli lock-release --yes          # 진행중 락 수동 해제 
 > **숲나들e 채널(`--channel foresttrip`) 매핑** (2026-10 실측): `park_key`=시/도 코드(예: `"6"`=전남광주), `facility_key`=시설 insttId(예: `"0181"`=방장산) 또는 명칭 부분문자열(`"방장산"`), 날짜=`YYYY-MM-DD`. 자격증명: `CAMPBOT_FT_ID` / `CAMPBOT_FT_PW` (env 전용, 미설정=사람 로그인 C-1).
 >
 > **숲나들e 현재 범위**: 조회(가능여부)·로그인 자동화 완료. 예약 제출 경로는 아직 미실측 — `submit_booking`은 사람 개입으로 전환(C-2 안전 우선).
+>
+> 📄 숲나들e 기술 분석 전문: `01_PRD/PRD-08_ForestTrip_TechAnalysis.md` (v1.0, 2026-10-11) — NetFunnel 토큰 플로우 실측(F-1~F-4), 채널 지문·메서드 상태표, KNPS 분리 구조, 백로그(B-1 상품 상세 실측 대기).
 
 ## 설계 원칙 리마인더 (위반 시 회귀 테스트가 잡아야 함)
 
@@ -121,9 +123,9 @@ requests/                        # 예약 요청 JSON 배치 위치 (*.json = gi
 ### 보안 원칙 (NFR-06)
 - 자격증명·토큰은 **`.env`(600) 전용** — 코드/로그/Git에 절대 기록 ❌
 - `data/` 전체는 gitignore 대상 (세션쿠키·DB 포함)
-- 숲나들e(foresttrip.go.kr) 자격증명은 `.env`에만 보관, 채널 미구현 시 HITL 경유
+- 숲나들e(foresttrip.go.kr) 자격증명 = `CAMPBOT_FT_ID/PW` (`.env` 전용, 로그 ❌). 미설정 시 C-1 HITL 경유 — KNPS 자격증명과 분리 관리
 
-### 테스트 (67 passed)
+### 테스트 (85 passed)
 ```bash
 PYTHONPATH=src ./.venv/bin/python -m pytest tests/ -q   # 2 skipped: 출석부 서버 미기동
 ```
