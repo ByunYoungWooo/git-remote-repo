@@ -229,6 +229,8 @@ def main(argv: list[str] | None = None, channel_factory: Callable[[], KnpsChanne
 
     p_run = sub.add_parser("run", help="예약 요청 파일로 실행")
     p_run.add_argument("--request", "-r", required=True, help="요청 구성 JSON (FR-019)")
+    p_run.add_argument("--channel", choices=["knps", "foresttrip"], default=None,
+                       help="예약 채널 선택 — 미지정 시 CAMPBOT_CHANNEL env 또는 knps 기본값")
     p_run.add_argument("--force-lock-release", action="store_true",
                        help="stale 락 감지 시 해제 후 진행 (정상 진행 중이면 여전히 거부)")
 
@@ -241,7 +243,7 @@ def main(argv: list[str] | None = None, channel_factory: Callable[[], KnpsChanne
 
     args = parser.parse_args(argv)
     if args.cmd == "run":
-        factory = channel_factory or _default_channel_factory
+        factory = channel_factory or _channel_factory_for(args)
         return cmd_run(args, factory)
     if args.cmd == "status":
         return cmd_status(args)
@@ -256,6 +258,18 @@ def _default_channel_factory() -> KnpsChannel:
     from .channels import UiKnpsChannel
 
     return UiKnpsChannel()
+
+
+def _channel_factory_for(args) -> Callable[[], KnpsChannel]:
+    """--channel 플래그 또는 CAMPBOT_CHANNEL env → 채널 팩토리 (AD-6: 인터페이스 동일, 구현 교체)."""
+    import os
+
+    name = (getattr(args, "channel", None) or os.environ.get("CAMPBOT_CHANNEL") or "knps").strip().lower()
+    if name in ("foresttrip", "ft", "숲나들e"):
+        from .channels import UiForestTripChannel
+
+        return lambda: UiForestTripChannel()
+    return _default_channel_factory
 
 
 if __name__ == "__main__":

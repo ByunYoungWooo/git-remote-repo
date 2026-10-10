@@ -231,6 +231,11 @@ class UiKnpsChannel(KnpsChannel):
         self._ensure_browser()
         page = self.browser.page_ref
 
+        # env 자격증명 로드 (NFR-06) — 미설정 시 사람 로그인 경로로 즉시 전환.
+        # 2026-10-10 버그 수정: 이 블록에서 `uid`/`pw`가 정의되지 않아 NameError 발생 →
+        # 자동 입력 경로와 HITL 게이트까지 무효화되던 문제. (load_env_credentials는 본 모듈 상단에 이미 존재)
+        uid, pw = load_env_credentials()
+
         did_autofill = False
         if uid and pw:
             try:

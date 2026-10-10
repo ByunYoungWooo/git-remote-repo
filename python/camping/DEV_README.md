@@ -60,7 +60,9 @@ export PATH="$PWD/.venv/bin:$PATH"
 export CAMPBOT_HOME=$PWD/data             # db·lock 위치
 # export CAMPBOT_TG_TOKEN=... CAMPBOT_TG_CHAT_ID=...   # Telegram 알림 (미설정 시 stdout 대체)
 
-python -m campbot.cli run --request myreq.json    # 실행 (KNPS 채널 연결 전까지는 MockChannel 주입 필요 — 아래 참조)
+python -m campbot.cli run --request myreq.json    # 실행 — 기본 채널 KNPS
+python -m campbot.cli run --request ft_req.json --channel foresttrip   # 숲나들e 채널 (⑭, 2026-10-11)
+# 또는 env로: export CAMPBOT_CHANNEL=ft
 python -m campbot.cli status -v                   # 최근 실행·시도로그·락 상태 (NFR-09)
 python -m campbot.cli lock-release --yes          # 진행중 락 수동 해제 (확인 후)
 ```
@@ -84,6 +86,10 @@ python -m campbot.cli lock-release --yes          # 진행중 락 수동 해제 
 
 > **참고 (실측 확정값, PRD-07 v1.3 F-8)**: `park_key`=공원 메뉴명(예: `"설악산"`), `facility_key`=야영지 코드(예: `B031005` — 설악동), `site_key`=`data-title` 마지막 세그먼트(예: `A1`, `카라반3`).
 > 자격증명은 env 전용(NFR-06): `CAMPBOT_KNPS_ID` / `CAMPBOT_KNPS_PW` (미설정 시 로그인=사람 직접, C-1 게이트).
+>
+> **숲나들e 채널(`--channel foresttrip`) 매핑** (2026-10 실측): `park_key`=시/도 코드(예: `"6"`=전남광주), `facility_key`=시설 insttId(예: `"0181"`=방장산) 또는 명칭 부분문자열(`"방장산"`), 날짜=`YYYY-MM-DD`. 자격증명: `CAMPBOT_FT_ID` / `CAMPBOT_FT_PW` (env 전용, 미설정=사람 로그인 C-1).
+>
+> **숲나들e 현재 범위**: 조회(가능여부)·로그인 자동화 완료. 예약 제출 경로는 아직 미실측 — `submit_booking`은 사람 개입으로 전환(C-2 안전 우선).
 
 ## 설계 원칙 리마인더 (위반 시 회귀 테스트가 잡아야 함)
 
