@@ -1,0 +1,14 @@
+.header { border-bottom: 1px solid var(--line); background: #fff; }
+.header .container { display: flex; align-items: center; justify-content: space-between; height: 64px; gap: 24px; }
+
+.logo { font-size: 20px; font-weight: 700; letter-spacing: .5px; }
+
+.navigation { display: flex; align-items: center; gap: 18px; font-size: 15px; color: var(--muted); }
+.navigation a:hover, .header-user { color: var(--ink); }
+.header-user { color: var(--ink); font-weight: 600; margin-right: 4px; }
+
+.logout-btn {
+  background: none; border: 1px solid var(--line); padding: 6px 14px; border-radius: 8px;
+  cursor: pointer; color: var(--ink); font-size: 14px;
+}
+.logout-btn:hover { border-color: var(--muted); }
