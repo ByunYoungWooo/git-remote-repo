@@ -1,14 +1,30 @@
-# s-mall — 작업 상태 (2026-10-18 07:30 KST)
+# s-mall — 작업 상태 (2026-10-19 00:30 KST)
 
-## 최신 진행 (2026-10-18)
+## 최신 진행 (2026-10-19 자정) — 브라우저 E2E 완료 + 버그 2건 픽스 (커밋 c4d63cd)
+- **브라우저 수동 E2E 전체 통과** (관리 크롬, tab `small`): 회원가입 → 로그인 → 홈/상품 목록 → 상품상세 옵션선택(아이보리/L) → 장바구니 담기 → 주문완료(#40, pending, ₩29,000) → /orders 목록 → /orders/40 상세(items 테이블). DB 검증: order #40 status=pending items=1, 카트 자동 비움(cart_left_user44=0), 옵션 재고 차감(id=3 20→19).
+- **버그#1 (심각) — 세션 저장 키 충돌**: `frontend/src/services/api.js`의 TOKEN_KEY와 USER_KEY가 동일한 문자열로 마스킹 피해 → 로그인 시 user JSON이 토큰을 덮어씀 → 모든 인증 API 401. 두 키 분리(`s-mall-token`/`s-mall-user`). **교훈: 이 채널에서 secret-looking 문자열 리터럴은 전송 중 깨짐 — jwt.js의 getSecret() 방식(구성 조합)이 안전.**
+- **버그#2 (UI) — 상품상세 재고 표시**: 색상만 선택 시 `product.stock_quantity`(49)가 옵션 실재고(19)를 대신 표시 + 사이즈 미선택 상태에서도 '담기' 클릭 가능(옵션 없이 기본재고 차감 경로로 이탈). `ProductDetail.js` 수정: color 단독은 프롬프트/버튼 비활성, size 선택 시 quantity 포함 저장 → 옵션 실재고 표시. 화면 검증 완료.
+- **auth 미들웨어 디버그 잔재 제거** (`/tmp/authdbg.txt` 쓰기 코드 정리) — 커밋에 포함.
+- **Jest 재확인 11/11 PASS** (0.843s) — 수정 후에도 회귀 없음.
+
+## 이전 진행 (2026-10-18 밤)
+- **PG 영구 기동 완료** — 형이 `pg-s-mall` systemd system unit을 등록해서 포그라운드 전환에도 죽지 않음. 포트 5433, db s_mall_db, user wooba(trust).
+- **Jest 통합 테스트 통과 (11/11 PASS)** (`tests/api.test.js`, `npx jest --runInBand`): auth 4, products 3, cart+order 플로우 4. 전용 계정 id=6(`jest-2026@s-mall.dev`), 전용 상품 id=99001(재고5). 재실행 안전성: username suffix로 충돌 방지 + 매 run 전후 상태 초기화.
+- **API 서버(:3001)는 PG만 뜨면 바로 `node backend/server.js`(background exec)로 기동 가능** — 샌드박스는 exec 세션 종료 시 데몬을 정리함. PG가 영구라 Jest/검증은 언제든 재실행 OK.
+
+## 이전 진행 (2026-10-18 오후)
+- **API E2E 스크립트 통과** (`/tmp/e2e_run.js`): login → /auth/me → cart add → 재고 초과 거부(409) → 주문 생성 201(orderId) → 주문 상세(items). 상품1 재고 50→49 차감 확인. 결과 JSON: `/tmp/e2e_result.json`. (실패 1회 원인: 이전 실행 잔여 cart_items에 qty=999 항목 — user_id 기준 정리 후 통과)
+- **운영 주의**: PG 기동과 검증(jest 등)을 **같은 실행 컨텍스트**에서 해야 함. `pg_ctl`/`setsid` 불가, 포그라운드를 백그라운드 exec으로 띄우는 방식만 유효.
+
+## 이전 진행 (2026-10-18 07:30)
 - **Orders 페이지 + `/orders/:id` 라우트 추가 완료** — `frontend/src/pages/Orders.js`, `OrderDetail.js`, `Orders.css`; `App.js` Route 2건 등록. Checkout의 "내 주문 보기" 죽은 링크 해소.
 - **`Checkout.css` 누락으로 빌드 실패 → 복구**: form/success view 스타일 재작성, `react-scripts build` 성공 (76KB JS / 2.85KB CSS).
-- **백엔드/DB/프론트 dev 서버 모두 background 세션으로 기동 확인**: PG 5433 · API :3001 (`GET /products` 200) · dev server :3000 (200).
 - 커밋: `3f5d02a ⑯ Orders 페이지 + 라우트 추가, Checkout.css 복구 — 프론트 빌드 성공`.
 
 ### 남은 항목
-1. **브라우저 수동 E2E** (홈→상품→상세옵션선택→장바구니→주문완료→/orders 목록→/orders/:id 상세) — dev 서버 :3000 에서 진행 가능, 아직 미실행.
-2. Jest 테스트 작성·실행, TODO.md / PROJECT.md 동기화.
+1. ~~브라우저 수동 E2E~~ ✅ (2026-10-19 자정 완료, 주문 #40 검증됨)
+2. **운영 배포 선택지** — 지금 상태는 개발용(DEV): API `node backend/server.js`(exec 세션 종료가면 사망), dev server :3000. 장기 운용 원하면 PG처럼 systemd system unit 두 개 더 등록 필요 (sudo → 형 단말기에서 실행).
+3. **결제 모듈** — 형 지시로 의도적 미구현 (`pending` 상태 유지).
 
 ---
 
