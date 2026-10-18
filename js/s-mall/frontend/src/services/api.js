@@ -3,8 +3,9 @@ import axios from 'axios';
 
 const API_BASE = process.env.REACT_APP_API_URL || 'http://localhost:3001';
 
-export const TOKEN_KEY = '***';
-export const USER_KEY = '***';
+// NOTE: 두 키는 반드시 서로 달라야 한다 (동일 문자열이면 저장 충돌 → 401)
+export const TOKEN_KEY = 's-mall-token';
+export const USER_KEY = 's-mall-user';
 
 const api = axios.create({ baseURL: API_BASE });
 
@@ -14,6 +15,19 @@ api.interceptors.request.use((config) => {
   if (token) config.headers.Authorization = `Bearer ${token}`;
   return config;
 });
+
+// 응답 인터셉터: 실패 시 로그 기록
+api.interceptors.response.use(
+  (r) => r,
+  (err) => {
+    try {
+      const u = (err.config && err.config.url) || '?';
+      const s = err.response ? err.response.status : '(network error)';
+      console.warn('[axios-fail]', u, 'status=', s);
+    } catch (e) {}
+    return Promise.reject(err);
+  }
+);
 
 export function saveSession(token, user) {
   if (token) localStorage.setItem(TOKEN_KEY, token);
@@ -29,7 +43,7 @@ export function getStoredUser() {
   try {
     const raw = localStorage.getItem(USER_KEY);
     return raw ? JSON.parse(raw) : null;
-  } catch {
+  } catch (e) {
     return null;
   }
 }

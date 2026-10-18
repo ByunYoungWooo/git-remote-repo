@@ -69,11 +69,14 @@ const ProductDetail = () => {
 
   const mainImage = product.images?.find((i) => i.isPrimary)?.url || product.images?.[0]?.url;
   const hasOptions = options.length > 0;
+  const optionReady = !!(selectedOption && selectedOption.id);
   const stockText = !hasOptions
     ? `재고 ${product.stock_quantity}개`
-    : selectedOption
-      ? `${selectedOption.color} / ${selectedOption.size} - 재고 ${stockOf(selectedOption)}개`
-      : '색상과 사이즈를 선택하세요';
+    : !optionReady
+      ? selectedOption?.color
+        ? `${selectedOption.color} - 사이즈를 선택하세요`
+        : '색상과 사이즈를 선택하세요'
+      : `${selectedOption.color} / ${selectedOption.size} - 재고 ${stockOf(selectedOption)}개`;
 
   return (
     <div className="product-detail">
@@ -117,7 +120,8 @@ const ProductDetail = () => {
                   const size = e.target.value;
                   if (!size) return;
                   const opt = options.find((o) => o.color === selectedOption.color && o.size === size);
-                  setSelectedOption(opt ? { id: opt.id, color: opt.color, size: opt.size } : null);
+                  // quantity까지 담아야 재고 표시/게이트가 옵션 실재고를 사용한다 (없으면 product.stock_quantity로 잘못 표시됨)
+                  setSelectedOption(opt ? { id: opt.id, color: opt.color, size: opt.size, quantity: opt.quantity } : null);
                 }}
               >
                 <option value="" disabled>선택</option>
@@ -145,7 +149,8 @@ const ProductDetail = () => {
         )}
 
         <div className="action-buttons">
-          <button type="button" className="add-to-cart" onClick={handleAddToCart} disabled={adding || (hasOptions && !selectedOption)}>
+          {/* 옵션 상품: 색상+사이즈까지(optionReady) 선택 전엔 담기 불가 — 색상만으로는 option_id 없이 기본 재고로 빠져나가는 것 방지 */}
+          <button type="button" className="add-to-cart" onClick={handleAddToCart} disabled={adding || (hasOptions && !optionReady)}>
             {adding ? '담는 중...' : '장바구니에 담기'}
           </button>
           <Link to="/products" className="back-link">목록으로</Link>
