@@ -1,0 +1,6 @@
+# s-mall local artifacts — do not commit
+node_modules/
+frontend/build/
+context.txt
+test-api.js   # 구식 스탠드얼론 테스트 (HANDOFF 참고)
+*.log

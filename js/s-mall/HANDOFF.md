@@ -1,4 +1,16 @@
-# s-mall — 작업 상태 (2026-10-19 00:30 KST)
+# s-mall — 작업 상태
+
+## 마무리 문서 정리 완료 (2026-10-19 오전) — 컨텍스트 오버플로 리셋 후 이어서 종료
+- `docs/ops.md` 신규: 기동·정지·점검 절차 + systemd 예시 (`smapi.service`). 표기 오류(同上)·단절된 WorkingDirectory 라인 수정.
+- `README.md`: 기술 스택 확정(React 18 / Express :3001 / PG 5433), 개발 상태 반영, 실행 안내 → ops.md 참조.
+- `PROJECT.md`: 기술 스택 확정 + 현재 상태(E2E·Jest 완료, 결제/배송/관리자 = 의도적 미구현).
+- `TODO.md`: 실제 구현 기준으로 체크박스 갱신 (1~4번 완료, 5~7번 = 형 지시 의도적 미구현 명시).
+- `FILE.md`: 실재 파일 구조로 재작성 (context.txt·test-api.js은 scratch로 표기).
+- `AGENT.md` / `ARCHITECTURE.md`: ops.md 참조 추가, 구현 상태 확정.
+- `.gitignore`(s-mall 로컬): node_modules/, frontend/build/, context.txt, test-api.js 제외.
+- 서버 2대(API :3001, FE dev :3000)는 이어서 떠 있음 — 종료 시 `docs/ops.md` 정지 순서 참조.
+
+## 최신 진행 (2026-10-19 자정) — 브라우저 E2E 완료 + 버그 2건 픽스 (커밋 c4d63cd)
 
 ## 최신 진행 (2026-10-19 자정) — 브라우저 E2E 완료 + 버그 2건 픽스 (커밋 c4d63cd)
 - **브라우저 수동 E2E 전체 통과** (관리 크롬, tab `small`): 회원가입 → 로그인 → 홈/상품 목록 → 상품상세 옵션선택(아이보리/L) → 장바구니 담기 → 주문완료(#40, pending, ₩29,000) → /orders 목록 → /orders/40 상세(items 테이블). DB 검증: order #40 status=pending items=1, 카트 자동 비움(cart_left_user44=0), 옵션 재고 차감(id=3 20→19).
